@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>SonerChat Ultra v1</title>
+    <title>SonerChat Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --bg: #0b0e14; --side: #151921; --p: #00ff9d; --text: #e1e1e1; --accent: #00d4ff; }
@@ -11,28 +11,27 @@
         .sidebar-header { padding: 25px; font-size: 1.4rem; font-weight: bold; color: var(--p); text-shadow: 0 0 10px rgba(0,255,157,0.3); }
         .nav-section { padding: 15px; flex: 1; overflow-y: auto; }
         .room { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 5px; color: #8e9297; transition: 0.2s; }
-        .room:hover { background: #2d3436; color: white; }
         .room.active { background: rgba(0,255,157,0.1); color: var(--p); border-left: 3px solid var(--p); }
-        .room.ses { color: var(--accent); }
+        .room.ses { color: var(--accent); border: 1px dashed var(--accent); }
         .main { flex: 1; display: flex; flex-direction: column; background: #0f1218; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         .msg { background: #1e232b; padding: 12px; border-radius: 12px; max-width: 75%; border: 1px solid #2d3436; }
-        .msg.me { align-self: flex-end; background: var(--p); color: #0b0e14; font-weight: 500; }
+        .msg.me { align-self: flex-end; background: var(--p); color: #0b0e14; }
         .input-area { padding: 20px; background: var(--side); display: flex; gap: 10px; border-top: 1px solid #2d3436; }
         input { flex: 1; background: #0b0e14; border: 1px solid #2d3436; padding: 12px; border-radius: 8px; color: white; outline: none; }
         .user-list { width: 200px; background: var(--side); padding: 20px; border-left: 1px solid #2d3436; }
-        .user-item { padding: 8px; cursor: pointer; font-size: 0.9rem; }
+        .user-item { padding: 8px; cursor: pointer; transition: 0.2s; }
         #voice-panel { display: none; background: #1e232b; padding: 15px; border-radius: 10px; margin: 10px; border: 1px solid var(--accent); }
         .meter { height: 6px; background: #0b0e14; border-radius: 3px; margin: 10px 0; overflow: hidden; }
-        #meter-fill { width: 0%; height: 100%; background: var(--p); box-shadow: 0 0 10px var(--p); transition: 0.1s; }
-        #pm-box { display: none; position: fixed; bottom: 90px; right: 220px; width: 300px; height: 380px; background: var(--side); border: 2px solid var(--p); border-radius: 12px; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .pm-head { background: var(--p); color: #0b0e14; padding: 12px; font-weight: bold; display: flex; justify-content: space-between; border-radius: 10px 10px 0 0; }
+        #meter-fill { width: 0%; height: 100%; background: var(--p); transition: 0.1s; }
+        .admin-link { display: block; color: var(--accent); text-decoration: none; font-size: 0.8rem; margin-top: 5px; font-weight: bold; }
+        .admin-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <div class="sidebar-header">SonerChat <i class="fa fa-microchip"></i></div>
+    <div class="sidebar-header">SonerChat <i class="fa fa-bolt"></i></div>
     <div class="nav-section">
         <small style="color: #4b5563">METİN KANALLARI</small>
         {% for o in yazi_odalar %}
@@ -45,157 +44,113 @@
         {% endfor %}
 
         <div id="voice-panel">
-            <span id="v-name" style="font-size: 0.7rem; color: var(--accent);"></span>
+            <span id="v-name" style="font-size: 0.7rem;"></span>
             <div class="meter"><div id="meter-fill"></div></div>
-            <button onclick="leaveVoice()" style="width:100%; background:#ff4757; border:none; color:white; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold">AYRIL</button>
+            <button onclick="leaveVoice()" style="width:100%; background:#ff4757; border:none; color:white; padding:5px; border-radius:5px; cursor:pointer">AYRIL</button>
         </div>
     </div>
-    <div style="padding: 20px; border-top: 1px solid #2d3436;">
-        <i class="fa fa-user-circle"></i> <strong>{{ kullanici.kullanici_adi }}</strong>
+    
+    <div style="padding: 20px; border-top: 1px solid #2d3436; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <i class="fa fa-user-circle" style="color: var(--p);"></i> 
+            <strong>{{ kullanici.kullanici_adi }}</strong>
+            {% if kullanici.is_super_admin %}
+            <a href="/admin" class="admin-link"><i class="fa fa-cog"></i> Yönetim Paneli</a>
+            {% endif %}
+        </div>
+        <a href="/cikis" title="Çıkış" style="color: #ff4757; text-decoration: none; font-size: 1.2rem;"><i class="fa fa-sign-out-alt"></i></a>
     </div>
 </div>
 
 <div class="main">
     <div id="messages"></div>
     <div class="input-area">
-        <input type="text" id="m-in" placeholder="Bir şeyler yaz..." onkeypress="if(event.key==='Enter')send()">
-        <button onclick="send()" style="background:var(--p); border:none; padding:12px 20px; border-radius:8px; cursor:pointer"><i class="fa fa-paper-plane"></i></button>
+        <input type="text" id="m-in" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter')send()">
+        <button onclick="send()" style="background:var(--p); border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-weight:bold">GÖNDER</button>
     </div>
 </div>
 
 <div class="user-list">
-    <small style="color: #4b5563">AKTİF KİŞİLER</small>
-    <div id="u-list-content" style="margin-top:15px"></div>
-</div>
-
-<div id="pm-box">
-    <div class="pm-head"><span id="pm-target"></span> <i class="fa fa-times" onclick="closePM()" style="cursor:pointer"></i></div>
-    <div id="pm-content" style="flex:1; overflow-y:auto; padding:15px; font-size:0.85rem; display:flex; flex-direction:column; gap:8px"></div>
-    <div style="padding:15px; background: #0b0e14; border-radius: 0 0 10px 10px;">
-        <input type="text" id="pm-in" placeholder="Fısılda..." onkeypress="if(event.key==='Enter')sendPM()" style="width:85%">
-    </div>
+    <small style="color: #4b5563">KULLANICILAR</small>
+    <div id="u-list-content" style="margin-top:10px"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
     const socket = io();
     const myName = "{{ kullanici.kullanici_adi }}";
-    let curRoom = '#genel';
-    let localStream;
-    let peers = {};
-    const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    let curRoom = '#genel', localStream, peers = {}, rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-    // MESAJLAŞMA
     function send() {
         const i = document.getElementById('m-in');
         if(i.value.trim()) { socket.emit('mesaj_gonder', { mesaj: i.value, oda: curRoom }); i.value = ''; }
     }
+
     socket.on('yeni_mesaj', d => {
-        if(d.oda !== curRoom) return;
-        const div = document.createElement('div');
-        div.className = `msg ${d.gonderen === myName ? 'me' : ''}`;
-        div.innerHTML = `<small style="display:block; font-size:0.6rem; margin-bottom:4px; opacity:0.6">${d.gonderen}</small>${d.icerik}`;
-        document.getElementById('messages').appendChild(div);
-        document.getElementById('messages').scrollTop = 99999;
+        if(d.oda === curRoom) {
+            const div = document.createElement('div');
+            div.className = `msg ${d.gonderen === myName ? 'me' : ''}`;
+            div.innerHTML = `<small style="display:block; font-size:0.6rem; opacity:0.6">${d.gonderen}</small>${d.icerik}`;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = 99999;
+        }
     });
 
-    // KULLANICI LİSTESİ VE PM
     socket.on('kullanici_listesi', list => {
         document.getElementById('u-list-content').innerHTML = list.map(u => 
-            `<div class="user-item" onclick="openPM('${u}')"><i class="fa fa-circle" style="color:var(--p); font-size:0.5rem"></i> ${u}</div>`
+            `<div class="user-item"><i class="fa fa-circle" style="color:var(--p); font-size:0.5rem"></i> ${u}</div>`
         ).join('');
     });
-    function openPM(u) {
-        if(u === myName) return;
-        document.getElementById('pm-target').innerText = u;
-        document.getElementById('pm-box').style.display = 'flex';
-    }
-    function closePM() { document.getElementById('pm-box').style.display = 'none'; }
-    function sendPM() {
-        const i = document.getElementById('pm-input'), target = document.getElementById('pm-target').innerText;
-        socket.emit('ozel_mesaj', { hedef: target, mesaj: i.value });
-        const div = document.createElement('div'); div.innerText = "Ben: " + i.value;
-        document.getElementById('pm-content').appendChild(div); i.value = '';
-    }
-    socket.on('yeni_ozel_mesaj', d => {
-        openPM(d.gonderen);
-        const div = document.createElement('div'); div.innerText = d.gonderen + ": " + d.mesaj;
-        div.style.color = "var(--p)";
-        document.getElementById('pm-content').appendChild(div);
-    });
 
-    // SESLİ ODA (WebRTC KÖPRÜSÜ)
     async function joinVoice(sRoom) {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             document.getElementById('voice-panel').style.display = 'block';
-            document.getElementById('v-name').innerText = "BAĞLI: " + sRoom;
+            document.getElementById('v-name').innerText = sRoom;
             
-            // Görsel Seviye Çubuğu
-            const audioCtx = new AudioContext();
-            const analyser = audioCtx.createAnalyser();
-            const source = audioCtx.createMediaStreamSource(localStream);
-            const node = audioCtx.createScriptProcessor(2048, 1, 1);
+            const audioCtx = new AudioContext(), analyser = audioCtx.createAnalyser(), source = audioCtx.createMediaStreamSource(localStream), node = audioCtx.createScriptProcessor(2048, 1, 1);
             source.connect(analyser); analyser.connect(node); node.connect(audioCtx.destination);
             node.onaudioprocess = () => {
-                let arr = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(arr);
+                let arr = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(arr);
                 let avg = arr.reduce((a,b)=>a+b)/arr.length;
-                document.getElementById('meter-fill').style.width = Math.min(avg * 2.5, 100) + "%";
+                document.getElementById('meter-fill').style.width = Math.min(avg * 3, 100) + "%";
             };
-
             socket.emit('ses_sinyali', { type: 'join', oda: sRoom, ad: myName });
-        } catch(e) { alert("Mikrofon izni gerekli!"); }
+        } catch(e) { alert("Mikrofon hatası!"); }
     }
 
     socket.on('ses_sinyali_al', async (data) => {
         if (data.type === 'join') {
-            const peer = createPeer(data.ad, data.oda);
-            const offer = await peer.createOffer();
-            await peer.setLocalDescription(offer);
+            const p = createPeer(data.ad, data.oda);
+            const offer = await p.createOffer(); await p.setLocalDescription(offer);
             socket.emit('ses_sinyali', { type: 'offer', offer, oda: data.oda, hedef: data.ad, gonderen: myName });
         } else if (data.type === 'offer') {
-            const peer = createPeer(data.gonderen, data.oda);
-            await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
+            const p = createPeer(data.gonderen, data.oda);
+            await p.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await p.createAnswer(); await p.setLocalDescription(answer);
             socket.emit('ses_sinyali', { type: 'answer', answer, oda: data.oda, hedef: data.gonderen, gonderen: myName });
-        } else if (data.type === 'answer') {
-            await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer));
-        } else if (data.type === 'ice') {
-            await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
+        } else if (data.type === 'answer') { await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer)); }
+        else if (data.type === 'ice') { await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate)); }
     });
 
-    function createPeer(targetUser, oda) {
-        const peer = new RTCPeerConnection(rtcConfig);
-        peers[targetUser] = peer;
-        localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
-        
-        peer.ontrack = (e) => {
-            let audio = document.getElementById('audio-' + targetUser);
-            if(!audio) {
-                audio = document.createElement('audio');
-                audio.id = 'audio-' + targetUser;
-                audio.autoplay = true;
-                document.body.appendChild(audio);
-            }
-            audio.srcObject = e.streams[0];
+    function createPeer(target, oda) {
+        const p = new RTCPeerConnection(rtcConfig); peers[target] = p;
+        localStream.getTracks().forEach(t => p.addTrack(t, localStream));
+        p.ontrack = (e) => {
+            let a = document.getElementById('audio-' + target);
+            if(!a) { a = document.createElement('audio'); a.id = 'audio-' + target; a.autoplay = true; document.body.appendChild(a); }
+            a.srcObject = e.streams[0];
         };
-
-        peer.onicecandidate = (e) => {
-            if(e.candidate) socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, oda: oda, hedef: targetUser, gonderen: myName });
-        };
-        return peer;
+        p.onicecandidate = (e) => { if(e.candidate) socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, oda: oda, hedef: target, gonderen: myName }); };
+        return p;
     }
 
     function leaveVoice() { location.reload(); }
     function switchRoom(ad, id) { 
-        if(ad === curRoom) return;
-        curRoom = ad; 
-        document.getElementById('messages').innerHTML = "";
+        if(ad === curRoom) return; 
+        curRoom = ad; document.getElementById('messages').innerHTML = "";
         document.querySelectorAll('.room').forEach(e=>e.classList.remove('active'));
-        document.getElementById('r-'+id).classList.add('active');
+        if(id) document.getElementById('r-'+id).classList.add('active');
     }
 </script>
 </body>
