@@ -81,16 +81,7 @@
     const myName = "{{ kullanici.kullanici_adi }}";
     let curRoom = '#genel', localStream, peers = {}, 
         
-        // Eski rtcConfig yerine bunu yapıştır
-let rtcConfig = { 
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun.relay.metered.ca:80" }
-    ] 
-};
-
+    
     function send() {
         const i = document.getElementById('m-in');
         if(i.value.trim()) { socket.emit('mesaj_gonder', { mesaj: i.value, oda: curRoom }); i.value = ''; }
@@ -129,40 +120,90 @@ let rtcConfig = {
         } catch(e) { alert("Mikrofon hatası!"); }
     }
 
-    socket.on('ses_sinyali_al', async (data) => {
+    // 1. STUN Sunucularını güçlendirdik
+let rtcConfig = { 
+    iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun.relay.metered.ca:80" }
+    ] 
+};
+
+socket.on('ses_sinyali_al', async (data) => {
+    try {
         if (data.type === 'join') {
             const p = createPeer(data.ad, data.oda);
-            const offer = await p.createOffer(); await p.setLocalDescription(offer);
+            const offer = await p.createOffer(); 
+            await p.setLocalDescription(offer);
             socket.emit('ses_sinyali', { type: 'offer', offer, oda: data.oda, hedef: data.ad, gonderen: myName });
-        } else if (data.type === 'offer') {
+        } 
+        else if (data.type === 'offer') {
             const p = createPeer(data.gonderen, data.oda);
             await p.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await p.createAnswer(); await p.setLocalDescription(answer);
+            const answer = await p.createAnswer(); 
+            await p.setLocalDescription(answer);
             socket.emit('ses_sinyali', { type: 'answer', answer, oda: data.oda, hedef: data.gonderen, gonderen: myName });
-        } else if (data.type === 'answer') { await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer)); }
-        else if (data.type === 'ice') { await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate)); }
-    });
+        } 
+        else if (data.type === 'answer') {
+            // Eğer peer henüz oluşmadıysa kısa bir süre bekle (Yarış durumunu engeller)
+            if (peers[data.gonderen]) {
+                await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
+        } 
+        else if (data.type === 'ice') {
+            // ICE adaylarını eklemek için PeerConnection'ın hazır olması gerekir
+            if (peers[data.gonderen] && data.candidate) {
+                try {
+                    await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch(e) { console.warn("ICE ekleme hatası:", e); }
+            }
+        }
+    } catch (err) {
+        console.error("Sinyalleşme hatası:", err);
+    }
+});
 
-    function createPeer(target, oda) {
-        const p = new RTCPeerConnection(rtcConfig); peers[target] = p;
+function createPeer(target, oda) {
+    const p = new RTCPeerConnection(rtcConfig); 
+    peers[target] = p;
+
+    // Kendi sesimizi kanala ekliyoruz
+    if (localStream) {
         localStream.getTracks().forEach(t => p.addTrack(t, localStream));
-        p.ontrack = (e) => {
-            let a = document.getElementById('audio-' + target);
-            if(!a) { a = document.createElement('audio'); a.id = 'audio-' + target; a.autoplay = true; document.body.appendChild(a); }
-            a.srcObject = e.streams[0];
-        };
-        p.onicecandidate = (e) => { if(e.candidate) socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, oda: oda, hedef: target, gonderen: myName }); };
-        return p;
     }
 
-    function leaveVoice() { location.reload(); }
-    function switchRoom(ad, id) { 
-        if(ad === curRoom) return; 
-        curRoom = ad; document.getElementById('messages').innerHTML = "";
-        document.querySelectorAll('.room').forEach(e=>e.classList.remove('active'));
-        if(id) document.getElementById('r-'+id).classList.add('active');
-    }
+    // Karşıdan ses geldiğinde
+    p.ontrack = (e) => {
+        let a = document.getElementById('audio-' + target);
+        if(!a) { 
+            a = document.createElement('audio'); 
+            a.id = 'audio-' + target; 
+            a.autoplay = true; 
+            a.setAttribute('playsinline', 'true'); // Mobil cihazlar için önemli
+            document.body.appendChild(a); 
+        }
+        a.srcObject = e.streams[0];
+        
+        // Tarayıcı kısıtlamalarını aşmak için manuel oynatmayı tetikle
+        a.play().catch(err => console.warn("Otomatik ses başlatılamadı:", err));
+    };
+
+    // Bağlantı durumunu konsolda takip edelim (Hata ayıklamak için)
+    p.onconnectionstatechange = () => {
+        console.log(`${target} ile bağlantı durumu: ${p.connectionState}`);
+    };
+
+    p.onicecandidate = (e) => { 
+        if(e.candidate) {
+            socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, oda: oda, hedef: target, gonderen: myName }); 
+        }
+    };
+    
+    return p;
+}
 </script>
 </body>
 
 </html>
+
