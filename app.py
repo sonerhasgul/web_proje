@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 # ... diğer importlar ...
@@ -133,3 +136,4 @@ if __name__ == '__main__':
     # host='0.0.0.0' sayesinde ağdaki herkes bağlanabilir
 
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
