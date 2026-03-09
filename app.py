@@ -3,9 +3,12 @@ eventlet.monkey_patch()
 
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-# ... diğer importlar ...
+from flask_sqlalchemy import SQLAlchemy  # BU SATIR EKSİK VEYA HATALI OLABİLİR
+from flask_socketio import SocketIO, emit, join_room
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+# ... geri kalan kodlar ...
 app.config['SECRET_KEY'] = 'soner_chat_secret_2026'
 
 # --- YENİ VERİTABANI AYARI BURADA ---
@@ -136,4 +139,5 @@ if __name__ == '__main__':
     # host='0.0.0.0' sayesinde ağdaki herkes bağlanabilir
 
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
 
