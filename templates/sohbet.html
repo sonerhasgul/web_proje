@@ -1,104 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-    <title>Soner Chat</title>
+    <meta charset="UTF-8">
+    <title>Soner Chat | Panel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --bg: #0f0f0f; --panel: #161616; --accent: #8e44ad; --text: #bbb; }
-        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
-        .sidebar { width: 240px; background: var(--panel); border-right: 1px solid #222; display: flex; flex-direction: column; padding: 20px; }
-        .chat-main { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+        :root { --sidebar-bg: #121212; --chat-bg: #0d0d0d; --accent: #9b59b6; --text: #f0f0f0; }
+        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: var(--chat-bg); color: var(--text); display: flex; height: 100vh; }
+        
+        /* Yan Panel */
+        .sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid #222; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; font-weight: bold; color: var(--accent); border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 0.7rem; color: #555; text-transform: uppercase; padding: 15px 20px 5px; letter-spacing: 1px; }
+        
+        /* Liste Tasarımı */
+        .list-item { padding: 10px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 0.9rem; color: #aaa; }
+        .list-item:hover { background: #1a1a1a; color: white; }
+        .list-item.active { background: #222; color: var(--accent); border-left: 3px solid var(--accent); }
+        .online-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; }
+
+        /* Ana Sohbet */
+        .main-chat { flex: 1; display: flex; flex-direction: column; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { background: #1e1e1e; padding: 10px; border-radius: 8px; max-width: 70%; border: 1px solid #333; }
-        .msg.me { align-self: flex-end; background: var(--accent); border: none; }
-        .input-area { padding: 20px; display: flex; gap: 10px; background: #111; border-top: 1px solid #222; }
-        input { flex: 1; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 5px; outline: none; }
-        button { background: var(--accent); border: none; color: white; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-        .sidebar-title { font-size: 0.7rem; color: #555; text-transform: uppercase; margin: 20px 0 10px; }
-        .online-user { font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-        .online-user::before { content: ""; width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; }
+        .msg { background: #181818; padding: 12px; border-radius: 10px; max-width: 70%; border: 1px solid #222; }
+        .msg.me { align-self: flex-end; background: var(--accent); color: white; border: none; }
+
+        /* Giriş Alanı */
+        .input-box { padding: 20px; background: #121212; display: flex; gap: 10px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
+        
+        /* Ses Durum Paneli */
+        #voice-status { display: none; background: #27ae60; padding: 10px; text-align: center; font-size: 0.8rem; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h2 style="color:var(--accent); margin:0 0 20px 0;">SONER CHAT</h2>
-        <p><i class="fas fa-user"></i> {{ kullanici.kullanici_adi }}</p>
-        <button onclick="joinVoice()" id="v-btn" style="background:#27ae60; margin-top:10px;"><i class="fas fa-microphone"></i> Sesli Odaya Gir</button>
-        <div class="sidebar-title">ÇEVRİMİÇİLER</div>
-        <div id="u-list"></div>
-        <button onclick="window.location.href='/logout'" style="background:#c0392b; margin-top:auto;">Çıkış Yap</button>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <span>SONER CHAT</span>
+        {% if kullanici.is_admin %}
+        <i class="fas fa-shield-alt" title="Admin Yetkisi" style="color:#e74c3c"></i>
+        {% endif %}
     </div>
 
-    <div class="chat-main">
-        <div id="messages"></div>
-        <div class="input-area">
-            <input id="m-in" placeholder="Bir şeyler yaz..." onkeypress="if(event.key==='Enter') send()">
-            <button onclick="send()"><i class="fas fa-paper-plane"></i></button>
-        </div>
+    <div class="section-title">Metin Kanalları</div>
+    <div class="list-item active" onclick="changeRoom('#genel')"><i class="fas fa-hashtag"></i> genel</div>
+    <div class="list-item" onclick="changeRoom('#duyurular')"><i class="fas fa-bullhorn"></i> duyurular</div>
+
+    <div class="section-title">Sesli Kanallar</div>
+    <div class="list-item" onclick="joinVoice('Lobi')"><i class="fas fa-volume-up"></i> Lobi Ses</div>
+
+    <div class="section-title">Çevrimiçi - <span id="user-count">0</span></div>
+    <div id="user-list"></div>
+
+    <div style="margin-top: auto; padding: 15px; border-top: 1px solid #222; display: flex; align-items: center; gap: 10px;">
+        <div class="online-dot"></div>
+        <span style="font-size: 0.9rem;">{{ kullanici.kullanici_adi }}</span>
+        <i class="fas fa-sign-out-alt" onclick="window.location.href='/logout'" style="margin-left:auto; cursor:pointer; color:#555"></i>
     </div>
+</div>
 
-    <script>
-        const socket = io();
-        const myName = "{{ kullanici.kullanici_adi }}";
-        let localStream, peers = {};
+<div class="main-chat">
+    <div id="voice-status">SESLİ BAĞLANTI AKTİF</div>
+    <div id="messages"></div>
+    <div class="input-box">
+        <input id="m-in" placeholder="#genel kanalına mesaj gönder..." onkeypress="if(event.key==='Enter') send()">
+        <button onclick="send()" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:1.2rem;"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
 
-        function send() {
-            const i = document.getElementById('m-in');
-            if(i.value.trim()) { socket.emit('mesaj_gonder', { mesaj: i.value }); i.value = ''; }
+<script>
+    const socket = io();
+    const myName = "{{ kullanici.kullanici_adi }}";
+    let currentRoom = '#genel', localStream, peers = {};
+
+    function send() {
+        const inp = document.getElementById('m-in');
+        if(inp.value.trim()) {
+            socket.emit('mesaj_gonder', { mesaj: inp.value, oda: currentRoom });
+            inp.value = '';
         }
+    }
 
-        socket.on('yeni_mesaj', d => {
+    socket.on('yeni_mesaj', d => {
+        if(d.oda === currentRoom) {
             const div = document.createElement('div');
             div.className = `msg ${d.gonderen === myName ? 'me' : ''}`;
-            div.innerHTML = `<small style="display:block; font-size:0.6rem; opacity:0.6">${d.gonderen}</small>${d.icerik}`;
+            div.innerHTML = `<small style="font-weight:bold; display:block; margin-bottom:4px; font-size:0.7rem;">${d.gonderen}</small>${d.icerik}`;
             document.getElementById('messages').appendChild(div);
             document.getElementById('messages').scrollTop = 99999;
-        });
-
-        socket.on('kullanici_listesi', list => {
-            document.getElementById('u-list').innerHTML = list.map(u => `<div class="online-user">${u}</div>`).join('');
-        });
-
-        // SES SİSTEMİ (STUN DAHİL)
-        async function joinVoice() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                document.getElementById('v-btn').innerText = "Seste Bağlı...";
-                document.getElementById('v-btn').style.background = "#8e44ad";
-                socket.emit('ses_sinyali', { type: 'join', ad: myName });
-            } catch(e) { alert("Mikrofon izni şart!"); }
         }
+    });
 
-        socket.on('ses_sinyali_al', async (data) => {
-            if (data.type === 'join') {
-                const p = createPeer(data.ad);
-                const offer = await p.createOffer(); await p.setLocalDescription(offer);
-                socket.emit('ses_sinyali', { type: 'offer', offer, hedef: data.ad, gonderen: myName });
-            } else if (data.type === 'offer' && data.hedef === myName) {
-                const p = createPeer(data.gonderen);
-                await p.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await p.createAnswer(); await p.setLocalDescription(answer);
-                socket.emit('ses_sinyali', { type: 'answer', answer, hedef: data.gonderen, gonderen: myName });
-            } else if (data.type === 'answer' && data.hedef === myName) {
-                if(peers[data.gonderen]) await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer));
-            } else if (data.type === 'ice' && data.hedef === myName) {
-                if(peers[data.gonderen]) await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
+    socket.on('kullanici_listesi', list => {
+        document.getElementById('user-count').innerText = list.length;
+        document.getElementById('user-list').innerHTML = list.map(u => `
+            <div class="list-item"><div class="online-dot"></div> ${u}</div>
+        `).join('');
+    });
 
-        function createPeer(target) {
-            const p = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-            peers[target] = p;
-            localStream.getTracks().forEach(t => p.addTrack(t, localStream));
-            p.ontrack = (e) => {
-                let a = document.getElementById('audio-' + target);
-                if(!a) { a = document.createElement('audio'); a.id = 'audio-' + target; a.autoplay = true; document.body.appendChild(a); }
-                a.srcObject = e.streams[0];
-            };
-            p.onicecandidate = (e) => { if(e.candidate) socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, hedef: target, gonderen: myName }); };
-            return p;
+    function changeRoom(room) {
+        currentRoom = room;
+        document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById('messages').innerHTML = ''; // Oda değişince ekranı temizle
+    }
+
+    // --- SES SİSTEMİ ---
+    async function joinVoice(room) {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            document.getElementById('voice-status').style.display = 'block';
+            socket.emit('ses_sinyali', { type: 'join', ad: myName });
+        } catch(e) { alert("Mikrofon izni verin!"); }
+    }
+
+    socket.on('ses_sinyali_al', async (data) => {
+        if (data.type === 'join') {
+            const p = createPeer(data.ad);
+            const offer = await p.createOffer(); await p.setLocalDescription(offer);
+            socket.emit('ses_sinyali', { type: 'offer', offer, hedef: data.ad, gonderen: myName });
+        } else if (data.type === 'offer' && data.hedef === myName) {
+            const p = createPeer(data.gonderen);
+            await p.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await p.createAnswer(); await p.setLocalDescription(answer);
+            socket.emit('ses_sinyali', { type: 'answer', answer, hedef: data.gonderen, gonderen: myName });
+        } else if (data.type === 'answer' && data.hedef === myName) {
+            if(peers[data.gonderen]) await peers[data.gonderen].setRemoteDescription(new RTCSessionDescription(data.answer));
+        } else if (data.type === 'ice' && data.hedef === myName) {
+            if(peers[data.gonderen]) await peers[data.gonderen].addIceCandidate(new RTCIceCandidate(data.candidate));
         }
-    </script>
+    });
+
+    function createPeer(target) {
+        const p = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+        peers[target] = p;
+        localStream.getTracks().forEach(t => p.addTrack(t, localStream));
+        p.ontrack = (e) => {
+            let a = document.getElementById('audio-' + target);
+            if(!a) { a = document.createElement('audio'); a.id = 'audio-' + target; a.autoplay = true; document.body.appendChild(a); }
+            a.srcObject = e.streams[0];
+        };
+        p.onicecandidate = (e) => { if(e.candidate) socket.emit('ses_sinyali', { type: 'ice', candidate: e.candidate, hedef: target, gonderen: myName }); };
+        return p;
+    }
+</script>
 </body>
 </html>
