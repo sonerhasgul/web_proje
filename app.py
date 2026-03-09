@@ -125,4 +125,5 @@ def handle_voice(data):
     elif data.get('type') == 'join': emit('ses_sinyali_al', data, room=data['oda'], include_self=False)
 
 if __name__ == '__main__':
-    socketio.run(app)
+    # host='0.0.0.0' sayesinde ağdaki herkes bağlanabilir
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
