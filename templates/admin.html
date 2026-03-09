@@ -1,70 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sistem Yönetimi</title>
+    <title>SonerChat | Yönetim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: sans-serif; background: #f1f5f9; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
-        th { background: #1e293b; color: white; }
-        .btn { padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: bold; }
-        .input-group { display: flex; gap: 10px; margin-top: 15px; }
-        input, select { padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+        body { background: #0b0e14; color: #e1e1e1; font-family: sans-serif; padding: 40px; }
+        .card { background: #151921; padding: 20px; border-radius: 12px; border: 1px solid #2d3436; margin-bottom: 20px; }
+        h2 { color: #00ff9d; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2d3436; }
+        input, select { background: #0b0e14; border: 1px solid #2d3436; color: white; padding: 8px; border-radius: 5px; }
+        .btn { background: #00ff9d; color: #0b0e14; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-red { background: #ff4757; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
+    <a href="/" style="color: #00ff9d; text-decoration: none;"><i class="fa fa-arrow-left"></i> Sohbet Odasına Dön</a>
+    
     <div class="card">
-        <h2>Oda Yönetimi</h2>
-        <form method="POST" class="input-group">
-            <input type="text" name="yeni_oda_ad" placeholder="Oda Adı (Örn: #muhabbet)" required>
+        <h2><i class="fa fa-plus-circle"></i> Yeni Oda Ekle</h2>
+        <form method="POST">
+            <input type="text" name="oda_adi" placeholder="Oda Adı (Örn: #oyun)" required>
             <select name="oda_tipi">
-                <option value="yazi">Yazılı Oda</option>
-                <option value="ses">Sesli Oda</option>
+                <option value="yazi">Yazı Odası</option>
+                <option value="ses">Ses Odası</option>
             </select>
-            <button type="submit" style="background:#10b981" class="btn">ODA AÇ</button>
+            <button type="submit" class="btn">Oluştur</button>
         </form>
+    </div>
+
+    <div class="card">
+        <h2><i class="fa fa-list"></i> Mevcut Odalar</h2>
         <table>
-            <thead><tr><th>Oda Adı</th><th>Tipi</th><th>İşlem</th></tr></thead>
-            <tbody>
-                {% for o in odalar %}
-                <tr>
-                    <td>{{ o.ad }}</td>
-                    <td>{{ "Sesli" if o.tip == 'ses' else "Yazılı" }}</td>
-                    <td><a href="/oda_sil/{{ o.id }}" style="color:red; text-decoration:none;">Kapat</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tr><th>Oda Adı</th><th>Tip</th><th>İşlem</th></tr>
+            {% for o in odalar %}
+            <tr>
+                <td>{{ o.ad }}</td>
+                <td>{{ o.tip }}</td>
+                <td>
+                    {% if o.ad != '#genel' %}
+                    <a href="/oda_sil/{{ o.id }}" class="btn-red">Sil</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
         </table>
     </div>
 
     <div class="card">
-        <h2>Kullanıcı Yetkileri</h2>
+        <h2><i class="fa fa-users"></i> Kayıtlı Kullanıcılar</h2>
         <table>
-            <thead><tr><th>Kullanıcı</th><th>Durum</th><th>İşlemler</th></tr></thead>
-            <tbody>
-                {% for u in kullanicilar %}
-                <tr>
-                    <td>{{ u.kullanici_adi }}</td>
-                    <td>{{ "Admin" if u.is_super_admin else "Üye" }}</td>
-                    <td>
-                        <button class="btn" style="background:#8b5cf6" onclick="cmd('super_admin_yap', '{{ u.kullanici_adi }}')">Admin Yap</button>
-                        <select onchange="cmd('oda_op_yap', '{{ u.kullanici_adi }}', this.value)">
-                            <option value="">Oda Yetkisi Ver...</option>
-                            {% for o in odalar if o.tip == 'yazi' %}<option value="{{ o.ad }}">{{ o.ad }}</option>{% endfor %}
-                        </select>
-                        <button class="btn" style="background:#ef4444" onclick="cmd('yetki_temizle', '{{ u.kullanici_adi }}')">Sıfırla</button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tr><th>ID</th><th>Kullanıcı Adı</th><th>Admin mi?</th></tr>
+            {% for k in kullanicilar %}
+            <tr><td>{{ k.id }}</td><td>{{ k.kullanici_adi }}</td><td>{{ 'Evet' if k.is_super_admin else 'Hayır' }}</td></tr>
+            {% endfor %}
         </table>
-        <br><a href="/" style="color:#3b82f6;">← Sohbete Dön</a>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script>
-        const socket = io();
-        function cmd(t, h, e) { socket.emit('admin_komut', {islem:t, hedef:h, oda:e}); setTimeout(()=>location.reload(), 500); }
-    </script>
 </body>
 </html>
