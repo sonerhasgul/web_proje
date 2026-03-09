@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem Yönetimi</title>
+    <style>
+        body { font-family: sans-serif; background: #f1f5f9; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background: #1e293b; color: white; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: bold; }
+        .input-group { display: flex; gap: 10px; margin-top: 15px; }
+        input, select { padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Oda Yönetimi</h2>
+        <form method="POST" class="input-group">
+            <input type="text" name="yeni_oda_ad" placeholder="Oda Adı (Örn: #muhabbet)" required>
+            <select name="oda_tipi">
+                <option value="yazi">Yazılı Oda</option>
+                <option value="ses">Sesli Oda</option>
+            </select>
+            <button type="submit" style="background:#10b981" class="btn">ODA AÇ</button>
+        </form>
+        <table>
+            <thead><tr><th>Oda Adı</th><th>Tipi</th><th>İşlem</th></tr></thead>
+            <tbody>
+                {% for o in odalar %}
+                <tr>
+                    <td>{{ o.ad }}</td>
+                    <td>{{ "Sesli" if o.tip == 'ses' else "Yazılı" }}</td>
+                    <td><a href="/oda_sil/{{ o.id }}" style="color:red; text-decoration:none;">Kapat</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Kullanıcı Yetkileri</h2>
+        <table>
+            <thead><tr><th>Kullanıcı</th><th>Durum</th><th>İşlemler</th></tr></thead>
+            <tbody>
+                {% for u in kullanicilar %}
+                <tr>
+                    <td>{{ u.kullanici_adi }}</td>
+                    <td>{{ "Admin" if u.is_super_admin else "Üye" }}</td>
+                    <td>
+                        <button class="btn" style="background:#8b5cf6" onclick="cmd('super_admin_yap', '{{ u.kullanici_adi }}')">Admin Yap</button>
+                        <select onchange="cmd('oda_op_yap', '{{ u.kullanici_adi }}', this.value)">
+                            <option value="">Oda Yetkisi Ver...</option>
+                            {% for o in odalar if o.tip == 'yazi' %}<option value="{{ o.ad }}">{{ o.ad }}</option>{% endfor %}
+                        </select>
+                        <button class="btn" style="background:#ef4444" onclick="cmd('yetki_temizle', '{{ u.kullanici_adi }}')">Sıfırla</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br><a href="/" style="color:#3b82f6;">← Sohbete Dön</a>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        function cmd(t, h, e) { socket.emit('admin_komut', {islem:t, hedef:h, oda:e}); setTimeout(()=>location.reload(), 500); }
+    </script>
+</body>
+</html>

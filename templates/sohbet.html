@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SonerChat | Ultra Voice Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --p: #10b981; --s: #1e293b; --bg: #f8fafc; --accent: #60a5fa; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); overflow: hidden; }
+        
+        /* Kenar Çubuğu */
+        .side { width: 260px; background: var(--s); color: white; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .room { padding: 12px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; color: #cbd5e1; transition: 0.3s; }
+        .room.active { background: var(--p); color: white; }
+        .room.ses { color: var(--accent); border: 1px dashed var(--accent); }
+        
+        /* Ana Sohbet Alanı */
+        .main { flex: 1; display: flex; flex-direction: column; }
+        #m-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 12px; border-radius: 12px; background: white; max-width: 70%; border: 1px solid #e2e8f0; }
+        .msg.me { align-self: flex-end; background: var(--p); color: white; }
+        .input-area { padding: 20px; background: white; display: flex; gap: 10px; border-top: 1px solid #e2e8f0; }
+        input { flex: 1; padding: 12px; border: 2px solid #f1f5f9; border-radius: 10px; outline: none; }
+
+        /* SES KONTROL PANELİ (YENİ) */
+        #voice-panel { display: none; background: #0f172a; padding: 15px; border-radius: 12px; margin-top: 15px; border: 1px solid var(--accent); }
+        .meter-bg { background: #334155; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }
+        #meter-fill { background: linear-gradient(90deg, #10b981, #facc15, #ef4444); width: 0%; height: 100%; transition: width 0.1s; }
+        .v-btns { display: flex; justify-content: space-between; gap: 5px; }
+        .v-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; color: white; }
+        .btn-mute { background: #475569; }
+        .btn-mute.active { background: #ef4444; }
+        .btn-leave { background: #94a3b8; }
+
+        .u-list { width: 220px; background: white; padding: 15px; border-left: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<div class="side">
+    <h2 style="color:var(--p); margin-bottom: 20px;">SonerChat</h2>
+    
+    <div style="flex: 1; overflow-y: auto;">
+        <small style="color:#64748b">METİN ODALARI</small>
+        {% for o in yazi_odalar %}
+        <div class="room {% if o.ad == '#genel' %}active{% endif %}" id="r-{{ o.id }}" onclick="join('{{ o.ad }}', '{{ o.id }}')">{{ o.ad }}</div>
+        {% endfor %}
+        <br>
+        <small style="color:#64748b">SESLİ ODALAR</small>
+        {% for s in ses_odalar %}
+        <div class="room ses" onclick="joinVoice('{{ s.ad }}')"><i class="fa fa-microphone"></i> {{ s.ad }}</div>
+        {% endfor %}
+
+        <div id="voice-panel">
+            <div style="font-size: 0.7rem; color: var(--accent);" id="v-status">Bağlanıyor...</div>
+            <div class="meter-bg">
+                <div id="meter-fill"></div>
+            </div>
+            <div class="v-btns">
+                <button id="mute-btn" class="v-btn btn-mute" onclick="toggleMute()"><i class="fa fa-microphone-slash"></i> Sustur</button>
+                <button class="v-btn btn-leave" onclick="leaveVoice()">Ayrıl</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:20px; padding-top:10px; border-top: 1px solid #334155;">
+        <span><i class="fa fa-circle" style="color:var(--p); font-size:0.6rem"></i> {{ kullanici.kullanici_adi }}</span><br>
+        {% if kullanici.is_super_admin %}<a href="/admin" style="color:#fbbf24; text-decoration:none; font-size:0.8rem">Yönetim</a>{% endif %}
+    </div>
+</div>
+
+<div class="main">
+    <div id="m-box"></div>
+    <div class="input-area">
+        <input type="text" id="m-in" placeholder="Mesaj yaz..." onkeypress="if(event.key==='Enter')send()">
+        <button onclick="send()" style="background:var(--p); color:white; border:none; padding:0 25px; border-radius:10px; cursor:pointer">GÖNDER</button>
+    </div>
+</div>
+
+<div class="u-list">
+    <strong>Çevrimiçi</strong>
+    <div id="online-list" style="margin-top:15px"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    let curRoom = '#genel';
+    const myName = "{{ kullanici.kullanici_adi }}";
+    
+    // Ses Değişkenleri
+    let localStream;
+    let audioContext;
+    let analyser;
+    let microphone;
+    let javascriptNode;
+    let isMuted = false;
+
+    async function joinVoice(sRoom) {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            document.getElementById('voice-panel').style.display = 'block';
+            document.getElementById('v-status').innerText = "Oda: " + sRoom;
+            
+            // Ses Seviyesi Ölçer (Analyzer) Kurulumu
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            microphone = audioContext.createMediaStreamSource(localStream);
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+            analyser.smoothingTimeConstant = 0.8;
+            analyser.fftSize = 1024;
+
+            microphone.connect(analyser);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+
+            javascriptNode.onaudioprocess = () => {
+                let array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                let values = 0;
+                for (let i = 0; i < array.length; i++) { values += array[i]; }
+                let average = values / array.length;
+                
+                // Meter çubuğunu güncelle (0-100 arası)
+                if(!isMuted) {
+                    document.getElementById('meter-fill').style.width = Math.min(average * 2, 100) + "%";
+                } else {
+                    document.getElementById('meter-fill').style.width = "0%";
+                }
+            };
+
+            socket.emit('oda_degistir', { yeni_oda: sRoom });
+            socket.emit('ses_sinyali', { type: 'join', oda: sRoom, ad: myName });
+
+        } catch (err) {
+            alert("Mikrofon izni verilmedi!");
+        }
+    }
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        localStream.getAudioTracks()[0].enabled = !isMuted;
+        const btn = document.getElementById('mute-btn');
+        if(isMuted) {
+            btn.classList.add('active');
+            btn.innerHTML = '<i class="fa fa-microphone"></i> Konuş';
+        } else {
+            btn.classList.remove('active');
+            btn.innerHTML = '<i class="fa fa-microphone-slash"></i> Sustur';
+        }
+    }
+
+    function leaveVoice() {
+        if(localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            if(audioContext) audioContext.close();
+            document.getElementById('voice-panel').style.display = 'none';
+            location.reload();
+        }
+    }
+
+    // Klasik Sohbet Fonksiyonları
+    function join(roomAd, roomId) {
+        if(roomAd === curRoom) return;
+        document.querySelectorAll('.room').forEach(e => e.classList.remove('active'));
+        document.getElementById('r-' + roomId).classList.add('active');
+        document.getElementById('m-box').innerHTML = "";
+        socket.emit('oda_degistir', { yeni_oda: roomAd });
+        curRoom = roomAd;
+    }
+
+    function send() {
+        const i = document.getElementById('m-in');
+        if(i.value.trim()) { socket.emit('mesaj_gonder', { mesaj: i.value }); i.value = ''; }
+    }
+
+    socket.on('yeni_mesaj', (d) => {
+        if(d.oda === curRoom) {
+            const div = document.createElement('div');
+            div.className = `msg ${d.gonderen === myName ? 'me' : ''}`;
+            div.innerHTML = `<strong style="font-size:0.7rem; display:block">${d.gonderen}</strong> ${d.icerik}`;
+            document.getElementById('m-box').appendChild(div);
+            document.getElementById('m-box').scrollTop = 99999;
+        }
+    });
+
+    socket.on('kullanici_listesi', (liste) => {
+        document.getElementById('online-list').innerHTML = liste.map(u => `
+            <div style="margin-bottom:10px; font-size:0.9rem">
+                <img src="/static/uploads/${u.foto}" style="width:25px; height:25px; border-radius:50%; vertical-align:middle; margin-right:5px">
+                <span>${u.ad}</span>
+            </div>`).join('');
+    });
+</script>
+</body>
+</html>

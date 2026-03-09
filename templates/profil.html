@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profilim</title>
+    <style>
+        body { font-family: sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #10b981; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>Profilini Düzenle</h2>
+    <img src="/static/uploads/{{ kullanici.profil_resmi }}" onerror="this.src='https://via.placeholder.com/100'">
+    <p><strong>{{ kullanici.kullanici_adi }}</strong></p>
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="foto" required><br><br>
+        <button type="submit" style="padding:10px 20px; background:#10b981; color:white; border:none; border-radius:5px; cursor:pointer">RESMİ GÜNCELLE</button>
+    </form>
+    <br><a href="/">Vazgeç ve Dön</a>
+</div>
+</body>
+</html>
