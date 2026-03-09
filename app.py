@@ -1,16 +1,18 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'soner_webrtc_final_2026'
+app.config['SECRET_KEY'] = 'soner_chat_secret_2026'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sohbet.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Modeller
 class Kullanici(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     kullanici_adi = db.Column(db.String(50), unique=True, nullable=False)
@@ -24,13 +26,14 @@ class Oda(db.Model):
 
 with app.app_context():
     db.create_all()
-    if Oda.query.count() == 0:
+    if not Oda.query.filter_by(ad='#genel').first():
         db.session.add(Oda(ad='#genel', tip='yazi'))
-        db.session.add(Oda(ad='🔊 Genel Ses', tip='ses'))
+        db.session.add(Oda(ad='🔊 Sesli Meydan', tip='ses'))
         db.session.commit()
 
 aktif_kullanicilar = {} 
 
+# --- ROTALAR ---
 @app.route('/')
 def ana_sayfa():
     if 'kullanici' not in session: return redirect(url_for('giris'))
@@ -38,6 +41,36 @@ def ana_sayfa():
     return render_template('sohbet.html', kullanici=k, 
                           yazi_odalar=Oda.query.filter_by(tip='yazi').all(),
                           ses_odalar=Oda.query.filter_by(tip='ses').all())
+
+# ADMIN PANELİ ROTASI (Geri Geldi!)
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_paneli():
+    if 'kullanici' not in session: return redirect(url_for('giris'))
+    k = Kullanici.query.filter_by(kullanici_adi=session['kullanici']).first()
+    if not k or not k.is_super_admin: return "Yetkisiz Erişim!", 403
+    
+    if request.method == 'POST':
+        oda_adi = request.form.get('oda_adi')
+        oda_tipi = request.form.get('oda_tipi')
+        if oda_adi:
+            yeni_oda = Oda(ad=oda_adi, tip=oda_tipi)
+            db.session.add(yeni_oda)
+            db.session.commit()
+            return redirect(url_for('admin_paneli'))
+
+    odalar = Oda.query.all()
+    kullanicilar = Kullanici.query.all()
+    return render_template('admin.html', odalar=odalar, kullanicilar=kullanicilar)
+
+@app.route('/oda_sil/<int:id>')
+def oda_sil(id):
+    k = Kullanici.query.filter_by(kullanici_adi=session.get('kullanici')).first()
+    if k and k.is_super_admin:
+        oda = Oda.query.get(id)
+        if oda and oda.ad != '#genel':
+            db.session.delete(oda)
+            db.session.commit()
+    return redirect(url_for('admin_paneli'))
 
 @app.route('/giris', methods=['GET', 'POST'])
 def giris():
@@ -65,6 +98,7 @@ def cikis():
     session.pop('kullanici', None)
     return redirect(url_for('giris'))
 
+# --- SOCKET ---
 @socketio.on('connect')
 def connect():
     ad = session.get('kullanici')
@@ -84,20 +118,11 @@ def disconnect():
 def handle_msg(data):
     emit('yeni_mesaj', {'icerik': data['mesaj'], 'gonderen': session.get('kullanici'), 'oda': data['oda']}, room=data['oda'])
 
-@socketio.on('ozel_mesaj')
-def handle_private(data):
-    hedef = data['hedef']
-    if hedef in aktif_kullanicilar:
-        emit('yeni_ozel_mesaj', {'gonderen': session.get('kullanici'), 'mesaj': data['mesaj']}, room=aktif_kullanicilar[hedef])
-
 @socketio.on('ses_sinyali')
 def handle_voice(data):
-    # Ses verisi değil, bağlantı kurma sinyalini iletir
     hedef_sid = aktif_kullanicilar.get(data.get('hedef'))
-    if hedef_sid:
-        emit('ses_sinyali_al', data, room=hedef_sid)
-    elif data.get('type') == 'join':
-        emit('ses_sinyali_al', data, room=data['oda'], include_self=False)
+    if hedef_sid: emit('ses_sinyali_al', data, room=hedef_sid)
+    elif data.get('type') == 'join': emit('ses_sinyali_al', data, room=data['oda'], include_self=False)
 
 if __name__ == '__main__':
     socketio.run(app)
