@@ -1,14 +1,19 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO, emit, join_room
-from werkzeug.security import generate_password_hash, check_password_hash
+# ... diğer importlar ...
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soner_chat_secret_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sohbet.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# --- YENİ VERİTABANI AYARI BURADA ---
+db_url = os.environ.get('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'sqlite:///sohbet.db'
+# ------------------------------------
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -126,4 +131,5 @@ def handle_voice(data):
 
 if __name__ == '__main__':
     # host='0.0.0.0' sayesinde ağdaki herkes bağlanabilir
+
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
