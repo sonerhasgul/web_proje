@@ -79,7 +79,17 @@
 <script>
     const socket = io();
     const myName = "{{ kullanici.kullanici_adi }}";
-    let curRoom = '#genel', localStream, peers = {}, rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    let curRoom = '#genel', localStream, peers = {}, 
+        
+        // Eski rtcConfig yerine bunu yapıştır
+let rtcConfig = { 
+    iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun.relay.metered.ca:80" }
+    ] 
+};
 
     function send() {
         const i = document.getElementById('m-in');
@@ -154,4 +164,5 @@
     }
 </script>
 </body>
+
 </html>
